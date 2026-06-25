@@ -41,7 +41,7 @@
 
   <div class="mode-tabs">
     <div class="mode-tab active" id="tab-signup" onclick="switchMode('signup')">New here?</div>
-    <div class="mode-tab" id="tab-id" onclick="switchMode('id')">I have an ID</div>
+    <div class="mode-tab" id="tab-id" onclick="switchMode('id')">I've checked in before</div>
   </div>
 
   <div id="signup-form">
@@ -71,8 +71,8 @@
   </div>
 
   <div id="id-form" style="display:none">
-    <label>Your Member ID *</label>
-    <input type="text" id="member-id-input" placeholder="e.g. DG-0001" style="text-transform:uppercase" />
+    <label>Your phone number *</label>
+    <input type="tel" id="phone-id-input" placeholder="e.g. 0244123456" maxlength="13" />
     <button class="btn" style="background:#fff;color:#111;border:1px solid #ddd;margin-top:0.6rem" onclick="openScanner()">📷 Scan QR instead</button>
     <button class="btn" onclick="submitIdCheckin()">Check in</button>
     <div id="scanner-wrap" style="display:none;margin-top:1rem">
@@ -89,12 +89,7 @@
   <h2 style="font-size:22px; color:#111; margin-bottom:0.5rem" id="success-title">You are checked in!</h2>
   <p style="font-size:15px; color:#555; margin-bottom:1.5rem" id="success-sub">God bless you</p>
 
-  <div id="member-id-box" style="display:none;background:white;border:2px dashed #111;border-radius:12px;padding:1.2rem;margin-bottom:1.5rem">
-    <p style="font-size:12px;color:#666;margin-bottom:6px">YOUR MEMBER ID — SAVE THIS!</p>
-    <p id="member-id-display" style="font-size:28px;font-weight:bold;color:#111;letter-spacing:1px;margin-bottom:10px">DG-0001</p>
-    <img id="member-qr-img" style="width:160px;height:160px" alt="Your Member ID QR code"/>
-    <p style="font-size:12px;color:#666;margin-top:8px">Screenshot this or write it down. Next time, just enter this ID — no need to fill the form again.</p>
-  </div>
+  <p style="font-size:13px; color:#666; margin-bottom:1.5rem">Use the phone number you signed up with to check in next time.</p>
 
   <div style="background:#d4edda; border-radius:12px; padding:1rem; font-size:13px; color:#155724;">
     Have a blessed service!
@@ -157,8 +152,7 @@ if (!ghanaPhone) return showMsg('Please enter a valid Ghana phone number e.g. 02
     if (data.success) {
       showSuccess({
         title: data.alreadyRegistered ? 'Welcome back!' : 'You are checked in!',
-        sub: data.alreadyRegistered ? 'Use the Member ID below next time.' : 'God bless you',
-        memberId: data.memberId
+        sub: data.alreadyRegistered ? 'This number was already registered.' : 'God bless you'
       });
     } else {
       showMsg(data.message, 'error');
@@ -166,13 +160,13 @@ if (!ghanaPhone) return showMsg('Please enter a valid Ghana phone number e.g. 02
   }
 
   async function submitIdCheckin() {
-    const memberId = document.getElementById('member-id-input').value.trim().toUpperCase();
-    if (!memberId) return showMsg('Please enter your Member ID', 'error');
+    const phone = document.getElementById('phone-id-input').value.trim();
+    if (!phone) return showMsg('Please enter your phone number', 'error');
 
     const res = await fetch('/checkin/id', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberId })
+      body: JSON.stringify({ phone })
     });
     const data = await res.json();
     if (data.success) {
@@ -185,24 +179,11 @@ if (!ghanaPhone) return showMsg('Please enter a valid Ghana phone number e.g. 02
     }
   }
 
-  async function showSuccess({ title, sub, memberId }) {
+  async function showSuccess({ title, sub }) {
     document.getElementById('signup-card').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
     document.getElementById('success-title').textContent = title;
     document.getElementById('success-sub').textContent = sub;
-
-    const box = document.getElementById('member-id-box');
-    if (memberId) {
-      box.style.display = 'block';
-      document.getElementById('member-id-display').textContent = memberId;
-      try {
-        const qrRes = await fetch('/qrcode/member/' + encodeURIComponent(memberId));
-        const qrData = await qrRes.json();
-        if (qrData.qr) document.getElementById('member-qr-img').src = qrData.qr;
-      } catch (e) { /* QR is a nice-to-have, ignore failures */ }
-    } else {
-      box.style.display = 'none';
-    }
   }
 
   function showMsg(text, type) {
@@ -231,7 +212,7 @@ if (!ghanaPhone) return showMsg('Please enter a valid Ghana phone number e.g. 02
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, imageData.width, imageData.height);
           if (code && code.data) {
-            document.getElementById('member-id-input').value = code.data.trim().toUpperCase();
+            document.getElementById('phone-id-input').value = code.data.trim();
             closeScanner();
             submitIdCheckin();
             return;
@@ -241,7 +222,7 @@ if (!ghanaPhone) return showMsg('Please enter a valid Ghana phone number e.g. 02
       }
       scannerLoopId = requestAnimationFrame(tick);
     } catch (e) {
-      showMsg('Could not access camera. Please type your Member ID instead.', 'error');
+      showMsg('Could not access camera. Please type your phone number instead.', 'error');
       document.getElementById('scanner-wrap').style.display = 'none';
     }
   }

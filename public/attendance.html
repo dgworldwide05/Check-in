@@ -95,7 +95,6 @@
         <tr>
           <th>#</th>
           <th>Name</th>
-          <th>Member ID</th>
           <th>Phone</th>
           <th>Department</th>
           <th>Type</th>
@@ -103,7 +102,7 @@
         </tr>
       </thead>
       <tbody id="att-body">
-        <tr><td colspan="7" class="empty">Loading...</td></tr>
+        <tr><td colspan="6" class="empty">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -213,14 +212,13 @@ document.addEventListener('keypress', (e) => {
     const tbody = document.getElementById('att-body');
     if (records.length === 0) {
       const isToday = selectedDate === todayStr;
-      tbody.innerHTML = `<tr><td colspan="7" class="empty">${isToday ? 'No check-ins yet today' : 'No check-ins recorded on this date'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">${isToday ? 'No check-ins yet today' : 'No check-ins recorded on this date'}</td></tr>`;
       return;
     }
     tbody.innerHTML = records.map((r, i) => `
       <tr>
         <td>${i + 1}</td>
         <td><strong>${r.name}</strong></td>
-        <td>${r.member_id || '—'}</td>
         <td>${r.phone || '—'}</td>
         <td>${r.department || '—'}</td>
         <td><span class="badge ${r.type}">${r.type}</span></td>
@@ -234,7 +232,6 @@ document.addEventListener('keypress', (e) => {
     const filtered = allRecords.filter(r =>
       r.name.toLowerCase().includes(q) ||
       (r.phone || '').includes(q) ||
-      (r.member_id || '').toLowerCase().includes(q) ||
       (r.department || '').toLowerCase().includes(q)
     );
     renderTable(filtered);
@@ -269,8 +266,8 @@ document.addEventListener('keypress', (e) => {
   }
 
   function exportCSV() {
-    const rows = [['Name','Member ID','Phone','Department','Type','Time']];
-    allRecords.forEach(r => rows.push([r.name, r.member_id, r.phone, r.department, r.type,
+    const rows = [['Name','Phone','Department','Type','Time']];
+    allRecords.forEach(r => rows.push([r.name, r.phone, r.department, r.type,
       new Date(r.created_at).toLocaleTimeString()]));
     const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const a = document.createElement('a');
