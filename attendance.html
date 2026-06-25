@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Attendance Dashboard</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:#f0f2f5;padding:2rem 1.5rem}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
+    .top h1{font-size:22px;color:#111}
+    .top p{font-size:13px;color:#666;margin-top:3px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.5rem}
+    .stat{background:white;border-radius:12px;padding:1.2rem;box-shadow:0 1px 6px rgba(0,0,0,0.07)}
+    .stat .lbl{font-size:12px;color:#666;margin-bottom:6px}
+    .stat .val{font-size:28px;font-weight:600;color:#111}
+    .stat.green .val{color:#155724}
+    .stat.blue .val{color:#185FA5}
+    .card{background:white;border-radius:12px;padding:1.5rem;box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-bottom:1.5rem}
+    .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+    .card-top h2{font-size:16px;color:#111}
+    .live{display:flex;align-items:center;gap:6px;font-size:12px;color:#155724;background:#d4edda;padding:4px 10px;border-radius:20px}
+    .dot{width:8px;height:8px;border-radius:50%;background:#28a745;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;font-size:12px;color:#666;padding:8px 10px;border-bottom:1px solid #f0f0f0}
+    td{padding:10px;border-bottom:1px solid #f9f9f9;color:#333}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#fafafa}
+    .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+    .badge.member{background:#e8eaf6;color:#3949ab}
+    .badge.visitor{background:#e3f2fd;color:#1565c0}
+    .qr-wrap{text-align:center;padding:1rem 0}
+    .qr-wrap img{width:200px;height:200px;border:1px solid #eee;border-radius:8px;padding:8px}
+    .qr-wrap p{font-size:12px;color:#666;margin-top:8px}
+    .qr-wrap a{font-size:12px;color:#111;word-break:break-all}
+    .btn{padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:white;font-size:13px;cursor:pointer}
+    .btn:hover{background:#f5f5f5}
+    .btn.primary{background:#111;color:white;border-color:#111}
+    .btn.primary:hover{background:#333}
+    .empty{text-align:center;color:#999;padding:2rem;font-size:13px}
+    .time{font-size:11px;color:#999}
+    .search{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none;margin-bottom:12px}
+    .search:focus{border-color:#111}
+  </style>
+      <div id="pin-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f0f2f5;display:flex;justify-content:center;align-items:center;z-index:9999">
+  <div style="background:white;padding:2rem;border-radius:16px;width:100%;max-width:340px;box-shadow:0 2px 12px rgba(0,0,0,0.1);text-align:center">
+    <img src="logo.PNG" style="width:180px;margin-bottom:1rem" alt="logo"/>
+    <h2 style="font-size:18px;color:#111;margin-bottom:0.3rem">Admin Access</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:1.5rem">Enter your PIN to continue</p>
+    <input type="password" id="pin-input" maxlength="6" placeholder="Enter PIN" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:18px;text-align:center;letter-spacing:8px;outline:none;margin-bottom:1rem"/>
+    <button onclick="checkPin()" style="width:100%;padding:11px;background:#111;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">Enter</button>
+    <div id="pin-error" style="color:#e74c3c;font-size:13px;margin-top:0.8rem;display:none">Wrong PIN! Try again.</div>
+  </div>
+</div>
+</head>
+<body>
+
+<div class="top">
+  <img src="logo.PNG" style="height:60px; margin-bottom:4px;" alt="Dwellers Gold Worldwide" />
+<p style="font-size:14px; font-weight:bold; color:#111;">Attendance Dashboard</p><p id="today-date"></p>
+  <div style="display:flex;gap:8px;align-items:center">
+    <input type="date" id="date-picker" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none" onchange="onDateChange()" />
+    <button class="btn" id="today-btn" onclick="goToToday()" style="display:none">Today</button>
+    <button class="btn" onclick="exportCSV()">Export CSV</button>
+    <button class="btn primary" onclick="loadAll()">Refresh</button>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="lbl">Total check-ins</div>
+    <div class="val" id="s-total">0</div>
+  </div>
+  <div class="stat green">
+    <div class="lbl">Members</div>
+    <div class="val" id="s-members">0</div>
+  </div>
+  <div class="stat blue">
+    <div class="lbl">Visitors</div>
+    <div class="val" id="s-visitors">0</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 300px;gap:1.5rem">
+
+  <div class="card">
+    <div class="card-top">
+      <h2 id="table-title">Today's attendance</h2>
+      <div class="live" id="live-badge"><div class="dot"></div> Live</div>
+    </div>
+    <input class="search" type="text" id="search" placeholder="Search by name, phone or department..." oninput="filterTable()" />
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Department</th>
+          <th>Type</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody id="att-body">
+        <tr><td colspan="6" class="empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-top"><h2>QR Code</h2></div>
+      <div class="qr-wrap">
+        <div id="qr-loading" style="color:#999;font-size:13px;padding:2rem">Generating...</div>
+        <img id="qr-img" style="display:none" alt="Check-in QR code" />
+        <p>Members scan this to check in</p>
+        <a id="qr-link" href="#" target="_blank"></a>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:8px">
+        <button class="btn primary" style="flex:1" onclick="printQR()">Print QR</button>
+        <button class="btn" style="flex:1" onclick="loadQR()">Refresh</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+  const ADMIN_PIN = '1122'; // Change this to your PIN!
+
+function checkPin() {
+  const entered = document.getElementById('pin-input').value;
+  if (entered === ADMIN_PIN) {
+    document.getElementById('pin-screen').style.display = 'none';
+  } else {
+    document.getElementById('pin-error').style.display = 'block';
+    document.getElementById('pin-input').value = '';
+  }
+}
+
+document.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') checkPin();
+});
+  let allRecords = [];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yesterdayStr = new Date(Date.now() - 864e5).toISOString().split('T')[0];
+  let selectedDate = yesterdayStr;
+  let refreshTimer = null;
+
+  document.getElementById('date-picker').value = yesterdayStr;
+  document.getElementById('date-picker').max = todayStr; // can't pick a future date
+  updateDateHeading();
+
+  function updateDateHeading() {
+    const isToday = selectedDate === todayStr;
+    document.getElementById('today-date').textContent = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-GB', {
+      weekday:'long', year:'numeric', month:'long', day:'numeric'
+    });
+    document.getElementById('table-title').textContent = isToday ? "Today's attendance" : `Attendance — ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})}`;
+    document.getElementById('live-badge').style.display = isToday ? 'flex' : 'none';
+    document.getElementById('today-btn').style.display = isToday ? 'none' : 'inline-block';
+  }
+
+  function onDateChange() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    selectedDate = document.getElementById('date-picker').value || todayStr;
+    document.getElementById('search').value = '';
+    updateDateHeading();
+    loadAll();
+    restartAutoRefresh();
+  }
+
+  function goToToday() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    selectedDate = todayStr;
+    document.getElementById('date-picker').value = yesterdayStr;
+    document.getElementById('search').value = '';
+    updateDateHeading();
+    loadAll();
+    restartAutoRefresh();
+  }
+
+  function restartAutoRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    // Only auto-refresh while viewing today — past dates are static history
+    if (selectedDate === todayStr) {
+      refreshTimer = setInterval(loadAll, 10000);
+    }
+  }
+
+  async function loadStats() {
+    const requestedDate = selectedDate;
+    const res = await fetch('/attendance/stats?date=' + requestedDate);
+    const data = await res.json();
+    if (requestedDate !== selectedDate) return; // a newer date was picked while this was loading
+    document.getElementById('s-total').textContent = data.total || 0;
+    document.getElementById('s-members').textContent = data.members || 0;
+    document.getElementById('s-visitors').textContent = data.visitors || 0;
+  }
+
+  async function loadAttendance() {
+    const requestedDate = selectedDate;
+    const res = await fetch('/attendance?date=' + requestedDate);
+    const records = await res.json();
+    if (requestedDate !== selectedDate) return; // a newer date was picked while this was loading
+    allRecords = records;
+    renderTable(allRecords);
+  }
+
+  function renderTable(records) {
+    const tbody = document.getElementById('att-body');
+    if (records.length === 0) {
+      const isToday = selectedDate === todayStr;
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">${isToday ? 'No check-ins yet today' : 'No check-ins recorded on this date'}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = records.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${r.name}</strong></td>
+        <td>${r.phone || '—'}</td>
+        <td>${r.department || '—'}</td>
+        <td><span class="badge ${r.type}">${r.type}</span></td>
+        <td class="time">${new Date(r.created_at).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'})}</td>
+      </tr>
+    `).join('');
+  }
+
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const filtered = allRecords.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      (r.phone || '').includes(q) ||
+      (r.department || '').toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+  }
+
+  async function loadQR() {
+    document.getElementById('qr-loading').style.display = 'block';
+    document.getElementById('qr-img').style.display = 'none';
+    const res = await fetch('/qrcode');
+    const data = await res.json();
+    if (data.qr) {
+      document.getElementById('qr-img').src = data.qr;
+      document.getElementById('qr-img').style.display = 'block';
+      document.getElementById('qr-loading').style.display = 'none';
+      document.getElementById('qr-link').textContent = data.url;
+      document.getElementById('qr-link').href = data.url;
+    }
+  }
+
+  function printQR() {
+    const img = document.getElementById('qr-img').src;
+    const win = window.open('');
+    win.document.write(`
+      <html><body style="text-align:center;font-family:Arial;padding:2rem">
+        <h2>Church Check-in</h2>
+        <p style="color:#666;margin-bottom:1rem">Scan this QR code to check in</p>
+        <img src="${img}" style="width:250px;height:250px" />
+        <p style="margin-top:1rem;font-size:12px;color:#999">God bless you!</p>
+      </body></html>
+    `);
+    win.print();
+  }
+
+  function exportCSV() {
+    const rows = [['Name','Phone','Department','Type','Time']];
+    allRecords.forEach(r => rows.push([r.name, r.phone, r.department, r.type,
+      new Date(r.created_at).toLocaleTimeString()]));
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download = 'attendance_' + selectedDate + '.csv';
+    a.click();
+  }
+
+  function loadAll() { loadStats(); loadAttendance(); }
+
+  // Auto refresh every 10 seconds while viewing today
+  loadAll();
+  loadQR();
+  restartAutoRefresh();
+</script>
+</body>
+</html>

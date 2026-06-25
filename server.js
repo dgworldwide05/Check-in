@@ -22,35 +22,17 @@ app.get('/qrcode', async (req, res) => {
   }
 });
 
-// Generate the next member ID, e.g. DG-0001, DG-0002, ...
-function generateNextMemberId(callback) {
-  db.query(
-    "SELECT member_id FROM members ORDER BY id DESC LIMIT 1",
-    (err, results) => {
-      if (err) return callback(err);
-      let nextNum = 1;
-      if (results.length > 0) {
-        const last = results[0].member_id || '';
-        const match = last.match(/(\d+)$/);
-        if (match) nextNum = parseInt(match[1], 10) + 1;
-      }
-      const memberId = 'DG-' + String(nextNum).padStart(4, '0');
-      callback(null, memberId);
-    }
-  );
-}
-
-// Generate a QR code that encodes a member's ID (so they can scan instead of typing)
-app.get('/qrcode/member/:memberId', async (req, res) => {
+// Generate a QR code that encodes a member's phone number (so they can scan instead of typing)
+app.get('/qrcode/member/:phone', async (req, res) => {
   try {
-    const qr = await QRCode.toDataURL(req.params.memberId.trim().toUpperCase());
+    const qr = await QRCode.toDataURL(req.params.phone.trim());
     res.json({ qr });
   } catch (err) {
-    res.json({ error: 'Failed to generate Member ID QR code' });
+    res.json({ error: 'Failed to generate phone QR code' });
   }
 });
 
-// Submit attendance (first-time signup) — creates a member record + gives a Member ID
+// Submit attendance (first-time signup) — creates a member record keyed by phone number
 app.post('/checkin', (req, res) => {
   const { name, phone, type, departments } = req.body;
   const dept = Array.isArray(departments) ? departments.join(', ') : (departments || '');
@@ -62,69 +44,53 @@ app.post('/checkin', (req, res) => {
     if (existing.length > 0) {
       const member = existing[0];
       return db.query(
-        'INSERT INTO attendance (name, phone, type, department, date, member_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [member.name, member.phone, member.type, member.department, date, member.member_id],
+        'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
+        [member.name, member.phone, member.type, member.department, date],
         (err2) => {
           if (err2) return res.json({ success: false, message: 'Error saving attendance' });
           res.json({
             success: true,
-            message: 'Welcome back! You already have a Member ID.',
-            memberId: member.member_id,
+            message: 'Welcome back! This phone number is already registered.',
+            phone: member.phone,
             alreadyRegistered: true
           });
         }
       );
     }
 
-    generateNextMemberId((genErr, memberId) => {
-      if (genErr) return res.json({ success: false, message: 'Error generating Member ID' });
+    db.query(
+      'INSERT INTO members (name, phone, type, department) VALUES (?, ?, ?, ?)',
+      [name, phone, type, dept],
+      (err2) => {
+        if (err2) return res.json({ success: false, message: 'Error saving member record' });
 
-      db.query(
-        'INSERT INTO members (member_id, name, phone, type, department) VALUES (?, ?, ?, ?, ?)',
-        [memberId, name, phone, type, dept],
-        (err2) => {
-          if (err2) return res.json({ success: false, message: 'Error saving member record' });
-
-          db.query(
-            'INSERT INTO attendance (name, phone, type, department, date, member_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [name, phone, type, dept, date, memberId],
-            (err3) => {
-              if (err3) return res.json({ success: false, message: 'Error saving attendance' });
-              res.json({
-                success: true,
-                message: 'Attendance recorded!',
-                memberId,
-                alreadyRegistered: false
-              });
-            }
-          );
-        }
-      );
-    });
+        db.query(
+          'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
+          [name, phone, type, dept, date],
+          (err3) => {
+            if (err3) return res.json({ success: false, message: 'Error saving attendance' });
+            res.json({
+              success: true,
+              message: 'Attendance recorded!',
+              phone,
+              alreadyRegistered: false
+            });
+          }
+        );
+      }
+    );
   });
 });
 
-// Look up a member's ID by their phone number (for "Forgot your Member ID?")
-app.get('/member/by-phone/:phone', (req, res) => {
+// Look up a member by their phone number (used to show "Welcome back, name" before confirming)
+app.get('/member/:phone', (req, res) => {
   const phone = req.params.phone.trim();
   db.query('SELECT * FROM members WHERE phone = ?', [phone], (err, results) => {
     if (err) return res.json({ success: false, message: 'Lookup failed' });
-    if (results.length === 0) return res.json({ success: false, message: 'No Member ID found for that phone number.' });
-    const m = results[0];
-    res.json({ success: true, memberId: m.member_id, name: m.name });
-  });
-});
-
-// Look up a member by their Member ID (used to show "Welcome back, name" before confirming)
-app.get('/member/:memberId', (req, res) => {
-  const memberId = req.params.memberId.trim().toUpperCase();
-  db.query('SELECT * FROM members WHERE member_id = ?', [memberId], (err, results) => {
-    if (err) return res.json({ success: false, message: 'Lookup failed' });
-    if (results.length === 0) return res.json({ success: false, message: 'Member ID not found' });
+    if (results.length === 0) return res.json({ success: false, message: 'Phone number not found' });
     const m = results[0];
     res.json({
       success: true,
-      memberId: m.member_id,
       name: m.name,
       phone: m.phone,
       type: m.type,
@@ -133,21 +99,21 @@ app.get('/member/:memberId', (req, res) => {
   });
 });
 
-// Returning member check-in — just the Member ID, no re-entering details
+// Returning member check-in — just the phone number, no re-entering details
 app.post('/checkin/id', (req, res) => {
-  const memberId = (req.body.memberId || '').trim().toUpperCase();
-  if (!memberId) return res.json({ success: false, message: 'Please enter your Member ID' });
+  const phone = (req.body.phone || '').trim();
+  if (!phone) return res.json({ success: false, message: 'Please enter your phone number' });
 
-  db.query('SELECT * FROM members WHERE member_id = ?', [memberId], (err, results) => {
-    if (err) return res.json({ success: false, message: 'Error looking up Member ID' });
-    if (results.length === 0) return res.json({ success: false, message: 'Member ID not found. Please sign up first.' });
+  db.query('SELECT * FROM members WHERE phone = ?', [phone], (err, results) => {
+    if (err) return res.json({ success: false, message: 'Error looking up phone number' });
+    if (results.length === 0) return res.json({ success: false, message: 'Phone number not found. Please sign up first.' });
 
     const member = results[0];
     const date = new Date().toISOString().split('T')[0];
 
     db.query(
-      'SELECT * FROM attendance WHERE member_id = ? AND date = ?',
-      [memberId, date],
+      'SELECT * FROM attendance WHERE phone = ? AND date = ?',
+      [phone, date],
       (err2, already) => {
         if (err2) return res.json({ success: false, message: 'Error checking attendance' });
         if (already.length > 0) {
@@ -160,8 +126,8 @@ app.post('/checkin/id', (req, res) => {
         }
 
         db.query(
-          'INSERT INTO attendance (name, phone, type, department, date, member_id) VALUES (?, ?, ?, ?, ?, ?)',
-          [member.name, member.phone, member.type, member.department, date, memberId],
+          'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
+          [member.name, member.phone, member.type, member.department, date],
           (err3) => {
             if (err3) return res.json({ success: false, message: 'Error saving attendance' });
             res.json({
