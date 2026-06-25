@@ -44,16 +44,47 @@ app.post('/checkin', (req, res) => {
     if (existing.length > 0) {
       const member = existing[0];
       return db.query(
-        'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
-        [member.name, member.phone, member.type, member.department, date],
-        (err2) => {
-          if (err2) return res.json({ success: false, message: 'Error saving attendance' });
-          res.json({
-            success: true,
-            message: 'Welcome back! This phone number is already registered.',
-            phone: member.phone,
-            alreadyRegistered: true
-          });
+        'SELECT * FROM attendance WHERE phone = ? AND date = ?',
+        [member.phone, date],
+        (checkErr, already) => {
+          if (checkErr) return res.json({ success: false, message: 'Error checking attendance' });
+          if (already.length > 0) {
+            return res.json({
+              success: true,
+              message: 'You are already checked in today!',
+              phone: member.phone,
+              alreadyRegistered: true,
+              alreadyCheckedIn: true
+            });
+          }
+
+          db.query(
+            'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
+            [member.name, member.phone, member.type, member.department, date],
+            (err2) => {
+              if (err2) {
+                // ER_DUP_ENTRY: the unique (phone, date) constraint caught a
+                // near-simultaneous duplicate request that slipped past the check above.
+                if (err2.code === 'ER_DUP_ENTRY') {
+                  return res.json({
+                    success: true,
+                    message: 'You are already checked in today!',
+                    phone: member.phone,
+                    alreadyRegistered: true,
+                    alreadyCheckedIn: true
+                  });
+                }
+                return res.json({ success: false, message: 'Error saving attendance' });
+              }
+              res.json({
+                success: true,
+                message: 'Welcome back! This phone number is already registered.',
+                phone: member.phone,
+                alreadyRegistered: true,
+                alreadyCheckedIn: false
+              });
+            }
+          );
         }
       );
     }
@@ -68,7 +99,18 @@ app.post('/checkin', (req, res) => {
           'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
           [name, phone, type, dept, date],
           (err3) => {
-            if (err3) return res.json({ success: false, message: 'Error saving attendance' });
+            if (err3) {
+              if (err3.code === 'ER_DUP_ENTRY') {
+                return res.json({
+                  success: true,
+                  message: 'You are already checked in today!',
+                  phone,
+                  alreadyRegistered: false,
+                  alreadyCheckedIn: true
+                });
+              }
+              return res.json({ success: false, message: 'Error saving attendance' });
+            }
             res.json({
               success: true,
               message: 'Attendance recorded!',
@@ -129,7 +171,17 @@ app.post('/checkin/id', (req, res) => {
           'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
           [member.name, member.phone, member.type, member.department, date],
           (err3) => {
-            if (err3) return res.json({ success: false, message: 'Error saving attendance' });
+            if (err3) {
+              if (err3.code === 'ER_DUP_ENTRY') {
+                return res.json({
+                  success: true,
+                  message: 'You are already checked in today!',
+                  name: member.name,
+                  alreadyCheckedIn: true
+                });
+              }
+              return res.json({ success: false, message: 'Error saving attendance' });
+            }
             res.json({
               success: true,
               message: 'Checked in successfully!',
