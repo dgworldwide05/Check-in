@@ -34,9 +34,16 @@ app.get('/qrcode/member/:phone', async (req, res) => {
 
 // Submit attendance (first-time signup) — creates a member record keyed by phone number
 app.post('/checkin', (req, res) => {
-  const { name, phone, type, departments } = req.body;
+  const { name, phone, type, departments, birthdayDay, birthdayMonth, location } = req.body;
   const dept = Array.isArray(departments) ? departments.join(', ') : (departments || '');
+  const bDay = birthdayDay ? parseInt(birthdayDay, 10) : null;
+  const bMonth = birthdayMonth ? parseInt(birthdayMonth, 10) : null;
+  const loc = (location || '').trim() || null;
   const date = new Date().toISOString().split('T')[0];
+
+  if (!name || !phone) return res.json({ success: false, message: 'Name and phone number are required' });
+  if (!bDay || !bMonth) return res.json({ success: false, message: 'Please select your birthday (day and month)' });
+  if (!loc) return res.json({ success: false, message: 'Please tell us where you stay' });
 
   db.query('SELECT * FROM members WHERE phone = ?', [phone], (err, existing) => {
     if (err) return res.json({ success: false, message: 'Error checking member record' });
@@ -59,8 +66,8 @@ app.post('/checkin', (req, res) => {
           }
 
           db.query(
-            'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
-            [member.name, member.phone, member.type, member.department, date],
+            'INSERT INTO attendance (name, phone, type, department, birthday_day, birthday_month, location, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [member.name, member.phone, member.type, member.department, member.birthday_day, member.birthday_month, member.location, date],
             (err2) => {
               if (err2) {
                 // ER_DUP_ENTRY: the unique (phone, date) constraint caught a
@@ -90,14 +97,14 @@ app.post('/checkin', (req, res) => {
     }
 
     db.query(
-      'INSERT INTO members (name, phone, type, department) VALUES (?, ?, ?, ?)',
-      [name, phone, type, dept],
+      'INSERT INTO members (name, phone, type, department, birthday_day, birthday_month, location) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name, phone, type, dept, bDay, bMonth, loc],
       (err2) => {
         if (err2) return res.json({ success: false, message: 'Error saving member record' });
 
         db.query(
-          'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
-          [name, phone, type, dept, date],
+          'INSERT INTO attendance (name, phone, type, department, birthday_day, birthday_month, location, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [name, phone, type, dept, bDay, bMonth, loc, date],
           (err3) => {
             if (err3) {
               if (err3.code === 'ER_DUP_ENTRY') {
@@ -136,7 +143,10 @@ app.get('/member/:phone', (req, res) => {
       name: m.name,
       phone: m.phone,
       type: m.type,
-      department: m.department
+      department: m.department,
+      birthdayDay: m.birthday_day,
+      birthdayMonth: m.birthday_month,
+      location: m.location
     });
   });
 });
@@ -168,8 +178,8 @@ app.post('/checkin/id', (req, res) => {
         }
 
         db.query(
-          'INSERT INTO attendance (name, phone, type, department, date) VALUES (?, ?, ?, ?, ?)',
-          [member.name, member.phone, member.type, member.department, date],
+          'INSERT INTO attendance (name, phone, type, department, birthday_day, birthday_month, location, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [member.name, member.phone, member.type, member.department, member.birthday_day, member.birthday_month, member.location, date],
           (err3) => {
             if (err3) {
               if (err3.code === 'ER_DUP_ENTRY') {
