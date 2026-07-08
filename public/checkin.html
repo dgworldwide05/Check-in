@@ -51,6 +51,19 @@
   <label>Phone number *</label>
   <input type="tel" id="phone" placeholder="e.g. 0244123456 or +233244123456" maxlength="13" />
 
+  <label>Birthday * <span class="optional">(day &amp; month only)</span></label>
+  <div style="display:flex;gap:8px">
+    <select id="bday-day" style="flex:1">
+      <option value="">Day</option>
+    </select>
+    <select id="bday-month" style="flex:1.4">
+      <option value="">Month</option>
+    </select>
+  </div>
+
+  <label>Where do you stay? *</label>
+  <input type="text" id="location" placeholder="e.g. Ahodwo, Kumasi" />
+
   <label>I am a *</label>
   <div class="type-btns">
     <div class="type-btn active" onclick="selectType('member', this)">Member</div>
@@ -59,12 +72,13 @@
 
  <label id="dept-label">Department <span class="optional">(optional — tick all that apply)</span></label>
   <div id="dept-grid" class="dept-grid">
-    <label class="dept-item"><input type="checkbox" value="Choir"> Choir</label>
+    <label class="dept-item"><input type="checkbox" value="Dwellers Singers"> Dwellers Singers</label>
     <label class="dept-item"><input type="checkbox" value="Ushers"> Ushers</label>
-    <label class="dept-item"><input type="checkbox" value="Innovation and Technology"> Innovation & Tech</label>
+    <label class="dept-item"><input type="checkbox" value="Media and Technical"> Media and Technical</label>
     <label class="dept-item"><input type="checkbox" value="Communion"> Communion</label>
     <label class="dept-item"><input type="checkbox" value="Prayer"> Prayer</label>
     <label class="dept-item"><input type="checkbox" value="Rego"> Rego</label>
+    <label class="dept-item"><input type="checkbox" value="None"> None</label>
   </div>
 
   <button class="btn" onclick="submitCheckin()">Check in</button>
@@ -102,6 +116,37 @@
   let selectedType = 'member';
   let scannerStream = null;
   let scannerLoopId = null;
+
+  // Populate the birthday Day / Month dropdowns (day & month only — no year)
+  (function populateBirthday() {
+    const dayEl = document.getElementById('bday-day');
+    for (let d = 1; d <= 31; d++) {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      dayEl.appendChild(opt);
+    }
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthEl = document.getElementById('bday-month');
+    months.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = i + 1;
+      opt.textContent = m;
+      monthEl.appendChild(opt);
+    });
+  })();
+
+  // Tick "None" clears every other department, and ticking any other department clears "None"
+  document.getElementById('dept-grid').addEventListener('change', (e) => {
+    if (e.target.tagName !== 'INPUT') return;
+    const boxes = [...document.querySelectorAll('.dept-grid input')];
+    const noneBox = boxes.find(b => b.value === 'None');
+    if (e.target === noneBox) {
+      if (noneBox.checked) boxes.forEach(b => { if (b !== noneBox) b.checked = false; });
+    } else if (e.target.checked && noneBox) {
+      noneBox.checked = false;
+    }
+  });
 
   function switchMode(mode) {
     document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
@@ -142,11 +187,17 @@ const ghanaPhone = /^(\+233|0)[0-9]{9}$/.test(phone);
 if (!ghanaPhone) return showMsg('Please enter a valid Ghana phone number e.g. 0244123456 or +233244123456', 'error');
 
     const departments = [...document.querySelectorAll('.dept-grid input:checked')].map(c => c.value);
+    const birthdayDay = document.getElementById('bday-day').value || null;
+    const birthdayMonth = document.getElementById('bday-month').value || null;
+    const location = document.getElementById('location').value.trim();
+
+    if (!birthdayDay || !birthdayMonth) return showMsg('Please select your birthday (day and month)', 'error');
+    if (!location) return showMsg('Please tell us where you stay', 'error');
 
     const res = await fetch('/checkin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, type: selectedType, departments })
+      body: JSON.stringify({ name, phone, type: selectedType, departments, birthdayDay, birthdayMonth, location })
     });
     const data = await res.json();
     if (data.success) {
