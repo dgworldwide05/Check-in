@@ -371,15 +371,52 @@ document.addEventListener('keypress', (e) => {
     });
   })();
 
+  // Department rules (same as the main check-in form):
+  //  - "None" cannot be combined with any other department (and vice versa)
+  //  - At most 3 departments can be selected (does not apply to "None")
+  const MAX_DEPARTMENTS = 3;
+
+  function setDeptDisabled(box, disabled) {
+    box.disabled = disabled;
+    box.closest('label').style.opacity = disabled ? '0.4' : '1';
+    box.closest('label').style.pointerEvents = disabled ? 'none' : 'auto';
+  }
+
+  function refreshDeptGrid(gridEl) {
+    const boxes = [...gridEl.querySelectorAll('input')];
+    const noneBox = boxes.find(b => b.value === 'None');
+    const others = boxes.filter(b => b !== noneBox);
+    const checkedOthers = others.filter(b => b.checked);
+
+    if (noneBox.checked) {
+      others.forEach(b => setDeptDisabled(b, true));
+    } else if (checkedOthers.length > 0) {
+      setDeptDisabled(noneBox, true);
+      others.forEach(b => setDeptDisabled(b, checkedOthers.length >= MAX_DEPARTMENTS && !b.checked));
+    } else {
+      setDeptDisabled(noneBox, false);
+      others.forEach(b => setDeptDisabled(b, false));
+    }
+  }
+
   document.getElementById('m-dept-grid').addEventListener('change', (e) => {
     if (e.target.tagName !== 'INPUT') return;
-    const boxes = [...document.querySelectorAll('#m-dept-grid input')];
+    const gridEl = document.getElementById('m-dept-grid');
+    const boxes = [...gridEl.querySelectorAll('input')];
     const noneBox = boxes.find(b => b.value === 'None');
+    const others = boxes.filter(b => b !== noneBox);
+
     if (e.target === noneBox) {
-      if (noneBox.checked) boxes.forEach(b => { if (b !== noneBox) b.checked = false; });
-    } else if (e.target.checked && noneBox) {
-      noneBox.checked = false;
+      if (noneBox.checked) others.forEach(b => { b.checked = false; });
+    } else if (e.target.checked) {
+      if (noneBox.checked) noneBox.checked = false;
+      const checkedOthers = others.filter(b => b.checked);
+      if (checkedOthers.length > MAX_DEPARTMENTS) {
+        e.target.checked = false;
+        showManualMsg(`You can select up to ${MAX_DEPARTMENTS} departments only`, 'error');
+      }
     }
+    refreshDeptGrid(gridEl);
   });
 
   function setManualType(type) {
@@ -396,7 +433,8 @@ document.addEventListener('keypress', (e) => {
     } else {
       deptGrid.style.opacity = '1';
       deptGrid.style.pointerEvents = 'auto';
-      deptLabel.innerHTML = 'Department <span style="font-size:11px;color:#999">(tick all that apply)</span>';
+      deptLabel.innerHTML = 'Department <span style="font-size:11px;color:#999">(tick all that apply, up to 3)</span>';
+      refreshDeptGrid(deptGrid);
     }
   }
 
