@@ -1,16 +1,4 @@
-{
-  "name": "church-attendance",
-  "version": "1.0.0",
-  "description": "Church check-in and attendance dashboard",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "express": "^5.2.1",
-    "mysql2": "^3.22.5",
-    "qrcode": "^1.5.4"
-  }
-}
+node_modules/
+ngrok.exe
+*.log
+.env
