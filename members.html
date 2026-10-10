@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>All Members</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:#f0f2f5;padding:2rem 1.5rem}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px}
+    .top-left{display:flex;flex-direction:column}
+    .top-left p.title{font-size:14px;font-weight:bold;color:#111}
+    .top-left p.sub{font-size:13px;color:#666;margin-top:3px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.5rem}
+    .stat{background:white;border-radius:12px;padding:1.2rem;box-shadow:0 1px 6px rgba(0,0,0,0.07)}
+    .stat .lbl{font-size:12px;color:#666;margin-bottom:6px}
+    .stat .val{font-size:28px;font-weight:600;color:#111}
+    .stat.green .val{color:#155724}
+    .stat.blue .val{color:#185FA5}
+    .card{background:white;border-radius:12px;padding:1.5rem;box-shadow:0 1px 6px rgba(0,0,0,0.07)}
+    .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+    .card-top h2{font-size:16px;color:#111}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;font-size:12px;color:#666;padding:8px 10px;border-bottom:1px solid #f0f0f0}
+    td{padding:10px;border-bottom:1px solid #f9f9f9;color:#333}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#fafafa}
+    .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+    .badge.member{background:#e8eaf6;color:#3949ab}
+    .badge.visitor{background:#e3f2fd;color:#1565c0}
+    .btn{padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:white;font-size:13px;cursor:pointer}
+    .btn:hover{background:#f5f5f5}
+    .btn.primary{background:#111;color:white;border-color:#111}
+    .btn.primary:hover{background:#333}
+    .empty{text-align:center;color:#999;padding:2rem;font-size:13px}
+    .search{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none;margin-bottom:12px}
+    .search:focus{border-color:#111}
+  </style>
+  <div id="pin-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f0f2f5;display:flex;justify-content:center;align-items:center;z-index:9999">
+    <div style="background:white;padding:2rem;border-radius:16px;width:100%;max-width:340px;box-shadow:0 2px 12px rgba(0,0,0,0.1);text-align:center">
+      <img src="logo.png" style="width:180px;margin-bottom:1rem" alt="logo"/>
+      <h2 style="font-size:18px;color:#111;margin-bottom:0.3rem">Admin Access</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:1.5rem">Enter your PIN to continue</p>
+      <input type="password" id="pin-input" maxlength="6" placeholder="Enter PIN" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:18px;text-align:center;letter-spacing:8px;outline:none;margin-bottom:1rem"/>
+      <button onclick="checkPin()" style="width:100%;padding:11px;background:#111;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">Enter</button>
+      <div id="pin-error" style="color:#e74c3c;font-size:13px;margin-top:0.8rem;display:none">Wrong PIN! Try again.</div>
+    </div>
+  </div>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-left">
+    <img src="logo.png" style="height:60px; margin-bottom:4px;" alt="Dwellers Gold Worldwide" />
+    <p class="title">All Members</p>
+    <p class="sub" id="member-count-sub"></p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <a href="attendance.html" class="btn">Attendance Dashboard</a>
+    <button class="btn" onclick="openAddLeader()">+ Add leader</button>
+    <button class="btn" onclick="exportCSV()">Export CSV</button>
+    <button class="btn primary" onclick="loadMembers()">Refresh</button>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="lbl">Total members</div>
+    <div class="val" id="s-total">0</div>
+  </div>
+  <div class="stat green">
+    <div class="lbl">Members</div>
+    <div class="val" id="s-members">0</div>
+  </div>
+  <div class="stat blue">
+    <div class="lbl">Visitors on file</div>
+    <div class="val" id="s-visitors">0</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-top">
+    <h2>Registered members &amp; visitors</h2>
+  </div>
+  <input class="search" type="text" id="search" placeholder="Search by name, phone, leader or department..." oninput="filterTable()" />
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Leader</th>
+        <th>Department</th>
+        <th>Birthday</th>
+        <th>Location</th>
+        <th>Type</th>
+        <th>Registered</th>
+      </tr>
+    </thead>
+    <tbody id="mem-body">
+      <tr><td colspan="9" class="empty">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Add leader -->
+<div id="al-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:9000;justify-content:center;align-items:flex-start;padding:2rem 1rem;overflow:auto">
+  <div class="card" style="width:100%;max-width:420px;margin-top:1rem">
+    <div class="card-top">
+      <h2>Add leader</h2>
+      <button class="btn" style="padding:4px 10px" onclick="closeAddLeader()">✕</button>
+    </div>
+    <p style="font-size:12px;color:#666;margin-bottom:1rem">Adds a new leader to every Leader dropdown. Members can then be assigned to them.</p>
+    <label style="font-size:13px;color:#555;display:block;margin-bottom:5px">Leader's name *</label>
+    <input type="text" id="al-name" placeholder="e.g. Ps. Kwame Mensah" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:1rem" />
+    <button class="btn primary" style="width:100%" onclick="saveAddLeader()">Add leader</button>
+    <div id="al-msg" style="margin-top:1rem;padding:12px;border-radius:8px;font-size:13px;text-align:center;display:none"></div>
+  </div>
+</div>
+
+<!-- Change leader -->
+<div id="cl-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:9000;justify-content:center;align-items:flex-start;padding:2rem 1rem;overflow:auto">
+  <div class="card" style="width:100%;max-width:420px;margin-top:1rem">
+    <div class="card-top">
+      <h2>Change leader</h2>
+      <button class="btn" style="padding:4px 10px" onclick="closeChange()">✕</button>
+    </div>
+    <p style="font-size:14px;color:#111;font-weight:bold;margin-bottom:2px" id="cl-who"></p>
+    <p style="font-size:12px;color:#666;margin-bottom:1rem" id="cl-current"></p>
+    <label style="font-size:13px;color:#555;display:block;margin-bottom:5px">New leader *</label>
+    <select id="cl-select" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:1rem"></select>
+    <button class="btn primary" style="width:100%" onclick="saveChange()">Save</button>
+    <div id="cl-msg" style="margin-top:1rem;padding:12px;border-radius:8px;font-size:13px;text-align:center;display:none"></div>
+  </div>
+</div>
+
+<script>
+  const ADMIN_PIN = '1122'; // Keep this in sync with attendance.html
+
+  function checkPin() {
+    const entered = document.getElementById('pin-input').value;
+    if (entered === ADMIN_PIN) {
+      document.getElementById('pin-screen').style.display = 'none';
+    } else {
+      document.getElementById('pin-error').style.display = 'block';
+      document.getElementById('pin-input').value = '';
+    }
+  }
+  document.addEventListener('keypress', (e) => { if (e.key === 'Enter') checkPin(); });
+
+  let allMembers = [];
+  const MONTH_NAMES = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function formatBirthday(r) {
+    if (!r.birthday_day || !r.birthday_month) return '—';
+    return `${r.birthday_day} ${MONTH_NAMES[r.birthday_month] || ''}`.trim();
+  }
+
+  function updateStats(records) {
+    const members = records.filter(r => r.type === 'member').length;
+    const visitors = records.filter(r => r.type === 'visitor').length;
+    document.getElementById('s-total').textContent = records.length;
+    document.getElementById('s-members').textContent = members;
+    document.getElementById('s-visitors').textContent = visitors;
+    document.getElementById('member-count-sub').textContent = records.length + ' people on file';
+  }
+
+  function renderTable(records) {
+    const tbody = document.getElementById('mem-body');
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="empty">No members found</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = records.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${r.name}</strong></td>
+        <td>${r.phone || '—'}</td>
+        <td>${esc(r.leader) || '—'} <button class="btn" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="openChange(${r.id})">${r.leader ? 'Change' : 'Assign'}</button></td>
+        <td>${r.department || '—'}</td>
+        <td>${formatBirthday(r)}</td>
+        <td>${r.location || '—'}</td>
+        <td><span class="badge ${r.type}">${r.type}</span></td>
+        <td class="time">${r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const filtered = allMembers.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      (r.phone || '').includes(q) ||
+      (r.leader || '').toLowerCase().includes(q) ||
+      (r.department || '').toLowerCase().includes(q) ||
+      (r.location || '').toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+  }
+
+  async function loadMembers() {
+    const res = await fetch('/members');
+    allMembers = await res.json();
+    updateStats(allMembers);
+    renderTable(allMembers);
+  }
+
+  function exportCSV() {
+    const rows = [['Name','Phone','Leader','Department','Birthday','Location','Type','Registered']];
+    allMembers.forEach(r => rows.push([r.name, r.phone, r.leader || '', r.department, formatBirthday(r), r.location || '', r.type,
+      r.created_at ? new Date(r.created_at).toLocaleDateString() : '']));
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download = 'all_members.csv';
+    a.click();
+  }
+
+  // ---------- Leaders: add a new leader / change a member's leader ----------
+  let leaders = [];
+  let changeId = null;
+
+  async function loadLeaders() {
+    try { leaders = await (await fetch('/leaders')).json(); } catch (e) { leaders = []; }
+  }
+
+  function showBox(id, text, ok) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.style.display = 'block';
+    el.style.background = ok ? '#d4edda' : '#f8d7da';
+    el.style.color = ok ? '#155724' : '#721c24';
+  }
+
+  function openAddLeader() {
+    document.getElementById('al-overlay').style.display = 'flex';
+    document.getElementById('al-name').focus();
+  }
+  function closeAddLeader() {
+    document.getElementById('al-overlay').style.display = 'none';
+    document.getElementById('al-msg').style.display = 'none';
+    document.getElementById('al-name').value = '';
+  }
+  async function saveAddLeader() {
+    const name = document.getElementById('al-name').value.trim();
+    if (name.length < 2) return showBox('al-msg', "Please enter the leader's name", false);
+    try {
+      const res = await fetch('/leaders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      const data = await res.json();
+      if (!data.success) return showBox('al-msg', data.message, false);
+      showBox('al-msg', data.message, true);
+      loadLeaders();
+      setTimeout(closeAddLeader, 1500);
+    } catch (e) { showBox('al-msg', 'Could not save. Please check your connection and try again.', false); }
+  }
+
+  async function openChange(id) {
+    const m = allMembers.find(x => x.id === id);
+    if (!m) return;
+    changeId = id;
+    await loadLeaders();
+    document.getElementById('cl-who').textContent = m.name;
+    document.getElementById('cl-current').textContent = m.leader ? 'Current leader: ' + m.leader : 'No leader yet';
+    const sel = document.getElementById('cl-select');
+    sel.innerHTML = '';
+    const first = document.createElement('option');
+    first.value = ''; first.textContent = 'Select a leader';
+    sel.appendChild(first);
+    leaders.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.id; opt.textContent = l.name;
+      sel.appendChild(opt);
+    });
+    sel.value = m.leader_id || '';
+    document.getElementById('cl-msg').style.display = 'none';
+    document.getElementById('cl-overlay').style.display = 'flex';
+  }
+  function closeChange() {
+    document.getElementById('cl-overlay').style.display = 'none';
+    changeId = null;
+  }
+  async function saveChange() {
+    const leaderId = document.getElementById('cl-select').value;
+    if (!leaderId) return showBox('cl-msg', 'Please choose a leader', false);
+    try {
+      const res = await fetch('/members/' + changeId + '/leader', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leaderId }) });
+      const data = await res.json();
+      if (!data.success) return showBox('cl-msg', data.message, false);
+      showBox('cl-msg', data.message, true);
+      await loadMembers();
+      filterTable();
+      setTimeout(closeChange, 1200);
+    } catch (e) { showBox('cl-msg', 'Could not save. Please check your connection and try again.', false); }
+  }
+
+  loadMembers();
+</script>
+</body>
+</html>
