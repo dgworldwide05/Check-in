@@ -66,6 +66,21 @@ app.put('/members/:id/leader', (req, res) => {
   });
 });
 
+// Delete a member record. Past attendance rows are kept (they hold their own copy of
+// name/phone), so attendance totals and history don't change.
+app.delete('/members/:id', (req, res) => {
+  const memberId = parseInt(req.params.id, 10);
+  if (!memberId) return res.json({ success: false, message: 'Member not found' });
+  db.query('SELECT name FROM members WHERE id = ?', [memberId], (err, rows) => {
+    if (err) return res.json({ success: false, message: 'Error finding member' });
+    if (rows.length === 0) return res.json({ success: false, message: 'Member not found' });
+    db.query('DELETE FROM members WHERE id = ?', [memberId], (derr) => {
+      if (derr) return res.json({ success: false, message: 'Error deleting member' });
+      res.json({ success: true, message: `${rows[0].name} was deleted.` });
+    });
+  });
+});
+
 // List of existing leaders (feeds the Leader dropdowns)
 app.get('/leaders', (req, res) => {
   db.query('SELECT id, name FROM leaders ORDER BY id ASC', (err, results) => {
@@ -441,6 +456,79 @@ app.post('/members', (req, res) => {
     if (lrows.length === 0) return res.json({ success: false, message: 'Selected leader was not found' });
     finish(lrows[0]);
   });
+});
+
+// Monthly attendance report: who came, how often, and who was consistent.
+// A "service day" is any date in the month that has at least one check-in.
+// Status is worked out against ALL service days in the month:
+//   every  = came to every service day      consistent = came to 75% or more (but not all)
+//   occasional = came at least once, under 75%    none = registered member who never came
+const CONSISTENT_THRESHOLD = 0.75;
+app.get('/reports/monthly', (req, res) => {
+  const now = new Date();
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month || '')
+    ? req.query.month
+    : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [y, m] = month.split('-').map(Number);
+  const start = `${month}-01`;
+  const end = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+
+  db.query(
+    `SELECT a.phone, a.name, a.type, DATE_FORMAT(a.date, '%Y-%m-%d') AS d
+     FROM attendance a WHERE a.date >= ? AND a.date < ? ORDER BY a.date ASC`,
+    [start, end],
+    (err, att) => {
+      if (err) return res.json({ success: false, message: 'Could not load the report' });
+      db.query(
+        `SELECT m.phone, m.name, m.type, l.name AS leader, DATE_FORMAT(m.created_at, '%Y-%m-%d') AS joined
+         FROM members m LEFT JOIN leaders l ON l.id = m.leader_id`,
+        (err2, members) => {
+          if (err2) return res.json({ success: false, message: 'Could not load the report' });
+
+          const serviceDates = [...new Set(att.map(r => r.d))].sort();
+          const byPhone = new Map(); // phone -> Set of dates
+          const attName = new Map();
+          att.forEach(r => {
+            if (!byPhone.has(r.phone)) byPhone.set(r.phone, new Set());
+            byPhone.get(r.phone).add(r.d);
+            attName.set(r.phone, { name: r.name, type: r.type });
+          });
+
+          if (serviceDates.length === 0) {
+            return res.json({ success: true, month, serviceDates, threshold: CONSISTENT_THRESHOLD, people: [] });
+          }
+
+          const people = [];
+          const seen = new Set();
+          members.forEach(mm => {
+            seen.add(mm.phone);
+            const dates = [...(byPhone.get(mm.phone) || [])].sort();
+            // Someone registered after this month ended can't have missed it
+            if (dates.length === 0 && (mm.type !== 'member' || mm.joined >= end)) return;
+            people.push({ name: mm.name, phone: mm.phone, type: mm.type, leader: mm.leader || null, dates });
+          });
+          // People who attended but are no longer in the members list (e.g. deleted)
+          byPhone.forEach((set, phone) => {
+            if (seen.has(phone)) return;
+            const info = attName.get(phone) || {};
+            people.push({ name: info.name || phone, phone, type: info.type || 'member', leader: null, dates: [...set].sort() });
+          });
+
+          const total = serviceDates.length;
+          people.forEach(p => {
+            p.attended = p.dates.length;
+            p.rate = total ? p.attended / total : 0;
+            p.status = p.attended === 0 ? 'none'
+              : p.attended === total ? 'every'
+              : p.rate >= CONSISTENT_THRESHOLD ? 'consistent' : 'occasional';
+          });
+          people.sort((a, b) => b.attended - a.attended || a.name.localeCompare(b.name));
+
+          res.json({ success: true, month, serviceDates, threshold: CONSISTENT_THRESHOLD, people });
+        }
+      );
+    }
+  );
 });
 
 // Get all distinct dates that have attendance records

@@ -62,8 +62,9 @@ Anything that can't be matched reliably is left without a leader (it shows as "â
 
 ## Adding leaders and changing a member's leader
 
-On the **All Members** page (`members.html`):
+On the **All Members** page (`members.html`, opened with the **All Members** button on the dashboard, and protected by its own admin PIN set at the top of the script in `members.html` as `ADMIN_PIN`):
 - **+ Add leader** creates a new leader. It appears in every Leader dropdown (the dashboard's dropdowns refresh each time you open them).
+- **Delete** removes a member record after a confirmation. Past attendance is kept, so history and counts don't change; the person would need registering again to check in by phone.
 - **Change** (or **Assign**, if the person has no leader) next to a member's leader lets you move them to a different leader. Only that person changes, and their past attendance shows the new leader too.
 
 ## Other ways to fix or change a leader
@@ -89,6 +90,7 @@ This adds people who are in the sheet but not in your database, as `member`s und
   - The CSV export includes a **Leader** column.
   - New **+ Add member** button. Enter a **phone number** and pick a **leader**. If the person is already in the system, that's all it needs: it assigns the leader (or tells you who their leader already is). If the number is new, a few more fields appear: name (required), then birthday, location, member/visitor and department (all optional). It doesn't check anyone in. Leader is required for members and optional for visitors.
   - The manual "Check someone in â†’ New / details" form has an optional **Leader** dropdown.
+- **Monthly Report** (`report.html`, opened with the **Monthly Report** button on the dashboard; same PIN as the dashboard): pick a month to see, from the real check-in records, who came every service, who was consistent and who rarely came, plus a per-leader summary. A service day is any date in that month with at least one check-in. *Every service* = came to all of them, *Consistent* = came to 75% or more, *Occasional* = came at least once but under 75%, *Didn't come* = a registered member with no check-in that month. Search and filter by status, leader or member/visitor, and export to CSV. It needs no database changes.
 - **All Members page:** new Leader column, search and CSV column.
 - Phone lookups now accept `0244123456`, `+233244123456` and `233244123456` interchangeably, so a member is found however the number is typed.
 

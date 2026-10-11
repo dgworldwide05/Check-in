@@ -60,6 +60,8 @@
   <img src="logo.png" style="height:60px; margin-bottom:4px;" alt="Dwellers Gold Worldwide" />
 <p style="font-size:14px; font-weight:bold; color:#111;">Attendance Dashboard</p><p id="today-date"></p>
   <div style="display:flex;gap:8px;align-items:center">
+    <a href="members.html" class="btn" style="text-decoration:none;color:inherit">All Members</a>
+    <a href="report.html" class="btn" style="text-decoration:none;color:inherit">Monthly Report</a>
     <input type="date" id="date-picker" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none" onchange="onDateChange()" />
     <button class="btn" id="today-btn" onclick="goToToday()" style="display:none">Today</button>
     <button class="btn" onclick="exportCSV()">Export CSV</button>

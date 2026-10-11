@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Monthly Attendance Report</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:#f0f2f5;padding:2rem 1.5rem}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px}
+    .top-left{display:flex;flex-direction:column;align-items:flex-start}
+    .top-left p.title{font-size:14px;font-weight:bold;color:#111}
+    .top-left p.sub{font-size:13px;color:#666;margin-top:3px}
+    .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:1.5rem}
+    .stat{background:white;border-radius:12px;padding:1.2rem;box-shadow:0 1px 6px rgba(0,0,0,0.07)}
+    .stat .lbl{font-size:12px;color:#666;margin-bottom:6px}
+    .stat .val{font-size:28px;font-weight:600;color:#111}
+    .stat.green .val{color:#155724}
+    .stat.blue .val{color:#185FA5}
+    .stat.amber .val{color:#856404}
+    .stat.red .val{color:#721c24}
+    .card{background:white;border-radius:12px;padding:1.5rem;box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-bottom:1.5rem}
+    .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+    .card-top h2{font-size:16px;color:#111}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;font-size:12px;color:#666;padding:8px 10px;border-bottom:1px solid #f0f0f0}
+    td{padding:10px;border-bottom:1px solid #f9f9f9;color:#333}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#fafafa}
+    .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+    .badge.every{background:#d4edda;color:#155724}
+    .badge.consistent{background:#e3f2fd;color:#1565c0}
+    .badge.occasional{background:#fff3cd;color:#856404}
+    .badge.none{background:#f8d7da;color:#721c24}
+    .btn{padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:white;font-size:13px;cursor:pointer;text-decoration:none;color:inherit}
+    .btn:hover{background:#f5f5f5}
+    .btn.primary{background:#111;color:white;border-color:#111}
+    .btn.primary:hover{background:#333}
+    .empty{text-align:center;color:#999;padding:2rem;font-size:13px}
+    .search{flex:1;min-width:200px;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none}
+    .search:focus{border-color:#111}
+    .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+    select.f{padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none;background:white}
+    .time{font-size:11px;color:#999}
+    .note{font-size:12px;color:#666;margin-bottom:1rem;line-height:1.5}
+    .bar{height:6px;border-radius:3px;background:#eee;min-width:60px;overflow:hidden}
+    .bar > div{height:100%;background:#28a745}
+    @media (max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}}
+  </style>
+  <div id="pin-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f0f2f5;display:flex;justify-content:center;align-items:center;z-index:9999">
+    <div style="background:white;padding:2rem;border-radius:16px;width:100%;max-width:340px;box-shadow:0 2px 12px rgba(0,0,0,0.1);text-align:center">
+      <img src="logo.png" style="width:180px;margin-bottom:1rem" alt="logo"/>
+      <h2 style="font-size:18px;color:#111;margin-bottom:0.3rem">Admin Access</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:1.5rem">Enter your PIN to continue</p>
+      <input type="password" id="pin-input" maxlength="6" placeholder="Enter PIN" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:18px;text-align:center;letter-spacing:8px;outline:none;margin-bottom:1rem"/>
+      <button onclick="checkPin()" style="width:100%;padding:11px;background:#111;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">Enter</button>
+      <div id="pin-error" style="color:#e74c3c;font-size:13px;margin-top:0.8rem;display:none">Wrong PIN! Try again.</div>
+    </div>
+  </div>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-left">
+    <img src="logo.png" style="height:60px; margin-bottom:4px;" alt="Dwellers Gold Worldwide" />
+    <p class="title">Monthly Attendance Report</p>
+    <p class="sub" id="sub"></p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <a href="attendance.html" class="btn">Attendance Dashboard</a>
+    <input type="month" id="month" style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none" onchange="loadReport()" />
+    <button class="btn" onclick="exportCSV()">Export CSV</button>
+    <button class="btn primary" onclick="loadReport()">Refresh</button>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="lbl">Service days</div><div class="val" id="s-days">0</div></div>
+  <div class="stat"><div class="lbl">People who came</div><div class="val" id="s-came">0</div></div>
+  <div class="stat green"><div class="lbl">Came every service</div><div class="val" id="s-every">0</div></div>
+  <div class="stat blue"><div class="lbl">Consistent</div><div class="val" id="s-consistent">0</div></div>
+  <div class="stat amber"><div class="lbl">Occasional</div><div class="val" id="s-occasional">0</div></div>
+  <div class="stat red"><div class="lbl">Members who didn't come</div><div class="val" id="s-none">0</div></div>
+</div>
+
+<div class="card">
+  <div class="card-top"><h2>By leader</h2></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Leader</th>
+        <th>Members</th>
+        <th>Came this month</th>
+        <th>Every service</th>
+        <th>Consistent</th>
+        <th>Occasional</th>
+        <th>Didn't come</th>
+        <th>Came (%)</th>
+      </tr>
+    </thead>
+    <tbody id="leader-body"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-top"><h2>Everyone</h2></div>
+  <p class="note" id="note"></p>
+  <div class="filters">
+    <input class="search" type="text" id="search" placeholder="Search by name, phone or leader..." oninput="render()" />
+    <select class="f" id="f-status" onchange="render()">
+      <option value="">All statuses</option>
+      <option value="every">Came every service</option>
+      <option value="consistent">Consistent</option>
+      <option value="occasional">Occasional</option>
+      <option value="none">Didn't come</option>
+    </select>
+    <select class="f" id="f-leader" onchange="render()"><option value="">All leaders</option></select>
+    <select class="f" id="f-type" onchange="render()">
+      <option value="">Members &amp; visitors</option>
+      <option value="member">Members only</option>
+      <option value="visitor">Visitors only</option>
+    </select>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Leader</th>
+        <th>Came</th>
+        <th></th>
+        <th>Status</th>
+        <th>Dates attended</th>
+      </tr>
+    </thead>
+    <tbody id="body"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+  const ADMIN_PIN = '1122'; // Same PIN as the attendance dashboard
+
+  function checkPin() {
+    if (document.getElementById('pin-input').value === ADMIN_PIN) {
+      document.getElementById('pin-screen').style.display = 'none';
+    } else {
+      document.getElementById('pin-error').style.display = 'block';
+      document.getElementById('pin-input').value = '';
+    }
+  }
+  document.addEventListener('keypress', (e) => { if (e.key === 'Enter') checkPin(); });
+
+  const STATUS_LABEL = { every: 'Every service', consistent: 'Consistent', occasional: 'Occasional', none: "Didn't come" };
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let report = null;
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  const now = new Date();
+  document.getElementById('month').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  function monthTitle(ym) {
+    const [y, m] = ym.split('-').map(Number);
+    return `${MONTH_NAMES[m - 1]} ${y}`;
+  }
+  function dayLabel(d) {
+    return String(parseInt(d.slice(8), 10));
+  }
+  function datesLabel(dates) {
+    return dates.length ? dates.map(dayLabel).join(', ') : '—';
+  }
+
+  async function loadReport() {
+    const month = document.getElementById('month').value;
+    if (!month) return;
+    try {
+      const res = await fetch('/reports/monthly?month=' + encodeURIComponent(month));
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      if (month !== document.getElementById('month').value) return; // a newer month was picked meanwhile
+      report = data;
+      fillLeaderFilter();
+      renderStats();
+      renderLeaders();
+      render();
+    } catch (e) {
+      document.getElementById('body').innerHTML = `<tr><td colspan="8" class="empty">Could not load the report. Please try again.</td></tr>`;
+    }
+  }
+
+  function fillLeaderFilter() {
+    const sel = document.getElementById('f-leader');
+    const cur = sel.value;
+    const names = [...new Set(report.people.map(p => p.leader).filter(Boolean))].sort();
+    sel.innerHTML = '';
+    const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
+    add('', 'All leaders');
+    names.forEach(n => add(n, n));
+    add('__none__', 'No leader');
+    sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
+  }
+
+  function renderStats() {
+    const p = report.people;
+    const count = s => p.filter(x => x.status === s).length;
+    document.getElementById('s-days').textContent = report.serviceDates.length;
+    document.getElementById('s-came').textContent = p.filter(x => x.attended > 0).length;
+    document.getElementById('s-every').textContent = count('every');
+    document.getElementById('s-consistent').textContent = count('consistent');
+    document.getElementById('s-occasional').textContent = count('occasional');
+    document.getElementById('s-none').textContent = p.filter(x => x.status === 'none' && x.type === 'member').length;
+    const days = report.serviceDates;
+    document.getElementById('sub').textContent = days.length
+      ? `${monthTitle(report.month)} · ${days.length} service day${days.length === 1 ? '' : 's'} (${datesLabel(days)})`
+      : `${monthTitle(report.month)} · no check-ins recorded`;
+    const pct = Math.round(report.threshold * 100);
+    document.getElementById('note').textContent =
+      `Service days are the dates in the month that had check-ins. "Every service" = came to all of them. ` +
+      `"Consistent" = came to ${pct}% or more. "Occasional" = came at least once but under ${pct}%. ` +
+      `"Didn't come" = a registered member with no check-in this month.`;
+  }
+
+  function renderLeaders() {
+    const groups = new Map();
+    report.people.filter(p => p.type === 'member').forEach(p => {
+      const k = p.leader || 'No leader';
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(p);
+    });
+    const rows = [...groups.entries()].map(([leader, list]) => {
+      const c = s => list.filter(x => x.status === s).length;
+      const came = list.filter(x => x.attended > 0).length;
+      return { leader, total: list.length, came, every: c('every'), consistent: c('consistent'), occasional: c('occasional'), none: c('none') };
+    }).sort((a, b) => (a.leader === 'No leader') - (b.leader === 'No leader') || b.came / (b.total || 1) - a.came / (a.total || 1));
+    const tbody = document.getElementById('leader-body');
+    if (rows.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="empty">No members to show</td></tr>`; return; }
+    tbody.innerHTML = rows.map(r => {
+      const pct = r.total ? Math.round(r.came / r.total * 100) : 0;
+      return `<tr>
+        <td><strong>${esc(r.leader)}</strong></td>
+        <td>${r.total}</td>
+        <td>${r.came}</td>
+        <td>${r.every}</td>
+        <td>${r.consistent}</td>
+        <td>${r.occasional}</td>
+        <td>${r.none}</td>
+        <td>${pct}%</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function filtered() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const st = document.getElementById('f-status').value;
+    const ld = document.getElementById('f-leader').value;
+    const ty = document.getElementById('f-type').value;
+    return report.people.filter(p =>
+      (!st || p.status === st) &&
+      (!ty || p.type === ty) &&
+      (!ld || (ld === '__none__' ? !p.leader : p.leader === ld)) &&
+      (!q || (p.name || '').toLowerCase().includes(q) || (p.phone || '').includes(q) || (p.leader || '').toLowerCase().includes(q))
+    );
+  }
+
+  function render() {
+    if (!report) return;
+    const list = filtered();
+    const tbody = document.getElementById('body');
+    if (list.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="empty">No one matches</td></tr>`; return; }
+    const total = report.serviceDates.length;
+    tbody.innerHTML = list.map((p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${esc(p.name)}</strong></td>
+        <td>${esc(p.phone) || '—'}</td>
+        <td>${esc(p.leader) || '—'}</td>
+        <td>${p.attended} of ${total}</td>
+        <td><div class="bar"><div style="width:${Math.round(p.rate * 100)}%"></div></div></td>
+        <td><span class="badge ${p.status}">${STATUS_LABEL[p.status]}</span></td>
+        <td class="time">${datesLabel(p.dates)}</td>
+      </tr>`).join('');
+  }
+
+  function exportCSV() {
+    if (!report) return;
+    const total = report.serviceDates.length;
+    const rows = [['Name','Phone','Leader','Type','Services attended','Service days','Percent','Status','Dates attended']];
+    filtered().forEach(p => rows.push([p.name, p.phone, p.leader || '', p.type, p.attended, total,
+      Math.round(p.rate * 100) + '%', STATUS_LABEL[p.status], p.dates.map(dayLabel).join(' ')]));
+    const csv = rows.map(r => r.map(c => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download = 'monthly_attendance_' + report.month + '.csv';
+    a.click();
+  }
+
+  loadReport();
+</script>
+</body>
+</html>

@@ -95,10 +95,11 @@
         <th>Location</th>
         <th>Type</th>
         <th>Registered</th>
+        <th></th>
       </tr>
     </thead>
     <tbody id="mem-body">
-      <tr><td colspan="9" class="empty">Loading...</td></tr>
+      <tr><td colspan="10" class="empty">Loading...</td></tr>
     </tbody>
   </table>
 </div>
@@ -135,7 +136,7 @@
 </div>
 
 <script>
-  const ADMIN_PIN = '1122'; // Keep this in sync with attendance.html
+  const ADMIN_PIN = '3456'; // Admin-only PIN for this page (the attendance dashboard has its own PIN)
 
   function checkPin() {
     const entered = document.getElementById('pin-input').value;
@@ -172,7 +173,7 @@
   function renderTable(records) {
     const tbody = document.getElementById('mem-body');
     if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" class="empty">No members found</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="empty">No members found</td></tr>`;
       return;
     }
     tbody.innerHTML = records.map((r, i) => `
@@ -186,6 +187,7 @@
         <td>${r.location || '—'}</td>
         <td><span class="badge ${r.type}">${r.type}</span></td>
         <td class="time">${r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '—'}</td>
+        <td><button class="btn" style="padding:2px 8px;font-size:11px;color:#c0392b;border-color:#f0c4c0" onclick="deleteMember(${r.id})">Delete</button></td>
       </tr>
     `).join('');
   }
@@ -256,6 +258,19 @@
       loadLeaders();
       setTimeout(closeAddLeader, 1500);
     } catch (e) { showBox('al-msg', 'Could not save. Please check your connection and try again.', false); }
+  }
+
+  async function deleteMember(id) {
+    const m = allMembers.find(x => x.id === id);
+    if (!m) return;
+    if (!confirm(`Delete ${m.name}?\n\nThis can't be undone. Their past attendance is kept, but they'll need to be registered again to check in by phone.`)) return;
+    try {
+      const res = await fetch('/members/' + id, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) return alert(data.message);
+      await loadMembers();
+      filterTable();
+    } catch (e) { alert('Could not delete. Please check your connection and try again.'); }
   }
 
   async function openChange(id) {
